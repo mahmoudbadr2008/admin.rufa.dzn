@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Split Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<style>
+body{
+ margin:0;
+ font-family:Arial;
+ background:#0f172a;
+ color:#fff;
+ padding:20px;
+}
+
+h1{margin-bottom:10px;}
+
+.top{
+ display:flex;
+ gap:10px;
+ flex-wrap:wrap;
+ margin-bottom:20px;
+}
+
+input, select{
+ padding:10px;
+ border-radius:8px;
+ border:none;
+ background:#1e293b;
+ color:#fff;
+}
+
+.section{
+ margin-bottom:30px;
+}
+
+.title{
+ font-size:18px;
+ margin-bottom:10px;
+ color:#38bdf8;
+}
+
+.card{
+ background:#1e293b;
+ padding:15px;
+ border-radius:10px;
+ margin:10px 0;
+}
+
+button{
+ padding:6px 10px;
+ border:none;
+ border-radius:6px;
+ cursor:pointer;
+ margin-right:5px;
+}
+
+.approve{background:#00ff88;color:#000;}
+.reject{background:#ef4444;color:#fff;}
+
+.small{
+ font-size:12px;
+ opacity:0.7;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Orders Dashboard ⚡</h1>
+
+<div class="top">
+<input id="search" placeholder="Smart search 🔍">
+<select id="sort">
+ <option value="new">Newest First</option>
+ <option value="old">Oldest First</option>
+</select>
+</div>
+
+<!-- ⏳ PENDING -->
+<div class="section">
+<div class="title">⏳ Pending</div>
+<div id="pending"></div>
+</div>
+
+<!-- ✅ ACCEPTED -->
+<div class="section">
+<div class="title">✅ Accepted</div>
+<div id="accepted"></div>
+</div>
+
+<!-- ❌ REJECTED -->
+<div class="section">
+<div class="title">❌ Rejected</div>
+<div id="rejected"></div>
+</div>
+
+<script type="module">
+import { db } from "./firebase.js";
+import { collection, onSnapshot, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+let allOrders = [];
+
+const pendingBox = document.getElementById("pending");
+const acceptedBox = document.getElementById("accepted");
+const rejectedBox = document.getElementById("rejected");
+
+// 🔥 Load data
+onSnapshot(collection(db,"orders"), snap=>{
+ allOrders = [];
+
+ snap.forEach(d=>{
+  let data = d.data();
+
+  allOrders.push({
+   docId: d.id,
+   ...data,
+   safeDate: getDate(data.createdAt)
+  });
+ });
+
+ render();
+});
+
+// 🕒 fix date
+function getDate(t){
+ if(!t) return 0;
+ if(t.seconds) return t.seconds;
+ return new Date(t).getTime()/1000 || 0;
+}
+
+// 🧠 smart search
+function smart(text="",search=""){
+ text = text.toLowerCase();
+ search = search.toLowerCase();
+
+ if(!search) return true;
+
+ if(text.includes(search)) return true;
+
+ let i=0;
+ for(let c of text){
+  if(c === search[i]) i++;
+ }
+ return i === search.length;
+}
+
+// 🎨 render
+function render(){
+ let search = document.getElementById("search").value;
+ let sort = document.getElementById("sort").value;
+
+ let filtered = allOrders.filter(o =>
+  smart(o.id,search) ||
+  smart(o.name,search) ||
+  smart(o.phone,search) ||
+  smart(o.method,search)
+ );
+
+ // 🕒 sort
+ filtered.sort((a,b)=>{
+  return sort === "new"
+   ? b.safeDate - a.safeDate
+   : a.safeDate - b.safeDate;
+ });
+
+ // reset
+ pendingBox.innerHTML="";
+ acceptedBox.innerHTML="";
+ rejectedBox.innerHTML="";
+
+ filtered.forEach(o=>{
+
+  let html = `
+  <div class="card">
+   <b>${o.name || "-"}</b><br>
+   ${o.phone || "-"}<br>
+   ${o.total || "-"}<br>
+
+   <div class="small">${o.status || "pending"}</div>
+
+   <button class="approve" onclick="approve('${o.docId}')">Accept</button>
+   <button class="reject" onclick="reject('${o.docId}')">Reject</button>
+  </div>
+  `;
+
+  if(o.status === "approved"){
+   acceptedBox.innerHTML += html;
+  }
+  else if(o.status === "rejected"){
+   rejectedBox.innerHTML += html;
+  }
+  else{
+   pendingBox.innerHTML += html;
+  }
+ });
+}
+
+// 🔍 events
+document.getElementById("search").addEventListener("input",render);
+document.getElementById("sort").addEventListener("change",render);
+
+// ✅ approve
+window.approve = async (id)=>{
+ await updateDoc(doc(db,"orders",id),{
+  status:"approved"
+ });
+};
+
+// ❌ reject
+window.reject = async (id)=>{
+ await updateDoc(doc(db,"orders",id),{
+  status:"rejected"
+ });
+};
+</script>
+
+</body>
+</html>

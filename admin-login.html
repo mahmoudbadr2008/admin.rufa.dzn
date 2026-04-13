@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Admin Login</title>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body style="background:#0f172a;color:#fff;display:flex;justify-content:center;align-items:center;height:100vh">
+
+<div style="background:#1e293b;padding:20px;border-radius:10px;width:300px">
+
+<h2>Admin Login 🔐</h2>
+
+<input id="email" placeholder="Email" style="width:100%;padding:10px;margin:10px 0">
+<input id="pass" type="password" placeholder="Password" style="width:100%;padding:10px">
+
+<button onclick="login()" style="width:100%;padding:10px;margin-top:10px;background:#00ff88">
+Login
+</button>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAgoxxWIyA5jZOXbaCqHDkRpEnLFiOBr3w",
+  authDomain: "rufa-dzn.firebaseapp.com",
+  projectId: "rufa-dzn"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+window.login = async () => {
+ let email = document.getElementById("email").value;
+ let pass = document.getElementById("pass").value;
+
+ if(!email || !pass){
+   Swal.fire("Missing Data ❌","Please fill all fields","warning");
+   return;
+ }
+
+ try {
+   // 🔐 login
+   const userCred = await signInWithEmailAndPassword(auth, email, pass);
+   const user = userCred.user;
+
+   // 🔥 check role from Firestore
+   const ref = doc(db, "users", user.uid);
+   const snap = await getDoc(ref);
+
+   if(!snap.exists() || snap.data().role !== "admin"){
+     await auth.signOut();
+     Swal.fire("Access Denied ❌","You are not admin","error");
+     return;
+   }
+
+   Swal.fire({
+     icon:"success",
+     title:"Welcome Admin 🔥",
+     timer:1500,
+     showConfirmButton:false
+   });
+
+   setTimeout(()=>location.href="admin.html",1500);
+
+ } catch(e){
+   Swal.fire("Login Failed ❌", e.message, "error");
+ }
+};
+</script>
+
+</body>
+</html>
